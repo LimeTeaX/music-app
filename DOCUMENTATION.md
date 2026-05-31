@@ -169,18 +169,47 @@ VITE_SPOTIFY_CLIENT_ID=your_client_id
 ```bash
 b4e2c44 Initial commit: Music Dashboard with Spotify + Last.fm + YouTube
 ba33f39 Add AGENTS.md with project context
+66b02a8 Add comprehensive project documentation
+b090960 Add vercel.json for SPA routing fix
 ```
 
 - **Branch**: `main`
 - **Remote**: `https://github.com/LimeTeaX/music-app.git`
 - **Deploy**: Vercel (isi env vars di Vercel dashboard)
-- **Spotify Dashboard**: Redirect URI = `https://[domain]/callback`
+
+## Deployment Notes
+
+### Vercel SPA Routing
+**Masalah**: Refresh halaman (misal `/settings`) return 404 karena server nyari file statis yang gak ada.
+**Fix**: `vercel.json` dengan rewrite rules:
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+Semua request diarahkan ke `index.html` — React Router handle routing selanjutnya.
+
+### Spotify Redirect URI
+- **Format**: `https://[domain]/callback` (WAJIB pake `/callback`)
+- Di Spotify Dashboard, Redirect URI harus persis sama domain deploy:
+  - Local: `http://localhost:5173/callback`
+  - Vercel: `https://namaproject.vercel.app/callback`
+- `window.location.origin` otomatis menyesuaikan domain yang dipakai.
+- **HTTPS wajib** untuk domain publik — Vercel sudah otomatis HTTPS.
+
+### Env Variables (Vercel)
+Environment variables harus diisi manual di Vercel Dashboard:
+- `VITE_LASTFM_API_KEY`
+- `VITE_LASTFM_USERNAME`
+- `VITE_YOUTUBE_API_KEY`
+- `VITE_SPOTIFY_CLIENT_ID`
 
 ---
 
 ## File Structure
 
 ```
+├── vercel.json                      # SPA routing rewrites
 src/
 ├── App.tsx                           # Router
 ├── index.css                         # Tailwind v4 + custom theme
