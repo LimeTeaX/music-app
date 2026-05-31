@@ -50,5 +50,11 @@
 - Remote: `https://github.com/LimeTeaX/music-app.git`
 
 ## Deploy
-- Vercel with env vars (see `.env` for required keys)
-- Spotify Dashboard → Redirect URI = `https://[domain]/callback`
+- **Vercel** — env vars di Vercel Dashboard: `VITE_LASTFM_API_KEY`, `VITE_LASTFM_USERNAME`, `VITE_YOUTUBE_API_KEY`, `VITE_SPOTIFY_CLIENT_ID`
+- **vercel.json** — required for SPA routing (`rewrites` → `index.html`)
+- **Spotify Dashboard** → Redirect URI = `https://[domain]/callback` (wajib `/callback`)
+- **Refresh 404 fix**: vercel.json rewrite all routes to index.html
+
+## Sessions
+- Chat history tidak tersimpan antar sesi opencode. Baca AGENTS.md + DOCUMENTATION.md untuk konteks lengkap.
+- Jangan ubah kode tanpa perintah eksplisit.
