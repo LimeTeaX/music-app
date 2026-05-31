@@ -1,0 +1,267 @@
+/* Tailwind v4 */
+@import "tailwindcss";
+
+/* Spotify Design System Colors */
+@theme {
+  /* Backgrounds - Near Black Immersive */
+  --color-bg-base: #121212;
+  --color-bg-surface: #181818;
+  --color-bg-surface-elevated: #1f1f1f;
+  --color-bg-card: #181818;
+  --color-bg-button: #1f1f1f;
+  --color-bg-button-hover: #2a2a2a;
+  
+  /* Text Colors */
+  --color-text-base: #ffffff;
+  --color-text-subdued: #b3b3b3;
+  --color-text-muted: #a7a7a7;
+  --color-text-bright: #fdfdfd;
+  
+  /* Spotify Green - Functional Only */
+  --color-accent: #1ed760;
+  --color-accent-hover: #1fdf64;
+  --color-accent-active: #1db954;
+  
+  /* Semantic Colors */
+  --color-negative: #f3727f;
+  --color-warning: #ffa42b;
+  --color-announcement: #539df5;
+  
+  /* Border & Shadow - Heavy untuk dark theme */
+  --color-border: #4d4d4d;
+  --color-border-light: #7c7c7c;
+  --shadow-heavy: 0px 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-medium: 0px 8px 8px rgba(0, 0, 0, 0.3);
+  --shadow-light: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  
+  /* Border Radius - Pill & Circle */
+  --radius-pill: 9999px;
+  --radius-large-pill: 500px;
+  --radius-circle: 50%;
+  --radius-card: 8px;
+  --radius-container: 6px;
+  --radius-small: 4px;
+}
+
+/* Base layer - sama dengan Tailwind preflight */
+@layer base {
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-base);
+    font-family: 'CircularSpUI', 'SpotifyMixUI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', helvetica, arial, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Typography - Spotify Compact Scale */
+  h1, .h1 {
+    font-family: 'CircularSpTitle', 'SpotifyMixUITitle', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  h2, .h2 {
+    font-family: 'CircularSpTitle', 'SpotifyMixUITitle', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  h3, .h3 {
+    font-family: 'CircularSpUI', 'SpotifyMixUI', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+}
+
+/* Utility classes - lebih tinggi dari Tailwind utilities */
+@layer utilities {
+  .body-bold {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .body-regular {
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  .caption-bold {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.54;
+  }
+
+  .caption-regular {
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  .small-bold {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  .small-regular {
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .micro {
+    font-size: 10px;
+    font-weight: 400;
+  }
+
+  /* Spotify Scrollbar */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: var(--radius-pill);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-subdued);
+  }
+
+  /* Utility Classes */
+  .glass-effect {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+  }
+
+  /* Card Styles */
+  .spotify-card {
+    background-color: var(--color-bg-surface);
+    border-radius: var(--radius-card);
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-medium);
+  }
+
+  .spotify-card:hover {
+    background-color: var(--color-bg-button-hover);
+  }
+
+  /* Button Styles */
+  .btn-spotify-pill {
+    background-color: var(--color-bg-button);
+    color: var(--color-text-base);
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .btn-spotify-pill:hover {
+    background-color: var(--color-bg-button-hover);
+    transform: scale(1.02);
+  }
+
+  .btn-spotify-green {
+    background-color: var(--color-accent);
+    color: #000000;
+    padding: 8px 32px;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .btn-spotify-green:hover {
+    background-color: var(--color-accent-hover);
+    transform: scale(1.02);
+  }
+
+  .btn-spotify-outline {
+    background-color: transparent;
+    color: var(--color-text-base);
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    border: 1px solid var(--color-border-light);
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .btn-spotify-outline:hover {
+    border-color: var(--color-text-base);
+    transform: scale(1.02);
+  }
+
+  /* Circular Play Button */
+  .play-button-circle {
+    width: 48px;
+    height: 48px;
+    background-color: var(--color-accent);
+    border-radius: var(--radius-circle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-heavy);
+  }
+
+  .play-button-circle:hover {
+    transform: scale(1.04);
+    background-color: var(--color-accent-hover);
+  }
+
+  .play-button-circle svg {
+    color: #000000;
+    fill: #000000;
+  }
+
+  /* Hide scrollbar utility */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Animations */
+  @keyframes scale-up {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.02);
+    }
+  }
+
+  .hover-scale:hover {
+    animation: scale-up 0.2s ease forwards;
+  }
+
+  /* Focus States */
+  *:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
