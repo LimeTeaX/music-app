@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Compass, Search, Library, BarChart3, User, Settings, Heart, Disc, Mic2 } from 'lucide-react'
+import { Home, Compass, Search, Library, BarChart3, Settings, Heart, Disc, Mic2 } from 'lucide-react'
 
 const mainNav = [
   { icon: Home, label: 'Home', path: '/' },
@@ -19,7 +19,6 @@ const playlistNav = [
 ]
 
 const bottomNav = [
-  { icon: User, label: 'Profile', path: '/profile' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ]
 

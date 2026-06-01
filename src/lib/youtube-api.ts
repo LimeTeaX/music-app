@@ -188,14 +188,48 @@ export async function searchVideoBest(query: string): Promise<YouTubeVideo | nul
   return null
 }
 
+export async function searchVideos(query: string, maxResults: number = 20): Promise<YouTubeVideo[]> {
+  if (!API_KEY) {
+    console.warn('VITE_YOUTUBE_API_KEY not set')
+    return []
+  }
+  try {
+    const searchUrl = `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&key=${API_KEY}&type=video&videoCategoryId=10&maxResults=${maxResults}`
+    const res = await fetch(searchUrl)
+    const data = await res.json()
+    if (data.error) {
+      console.error('YouTube API error:', data.error)
+      return []
+    }
+    return (data.items || []).map((item: any) => ({
+      id: item.id.videoId,
+      title: item.snippet.title,
+      thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
+      duration: '',
+    }))
+  } catch (err) {
+    console.error('YouTube searchVideos failed:', err)
+    return []
+  }
+}
+
 export function getPlayerState(): number {
   if (!playerReady) return -1
   return playerInstance.getPlayerState()
 }
 
 // Global event untuk play track dari komponen lain
-export function requestPlayTrack(title: string, artist: string, uri?: string) {
+export function requestPlayTrack(title: string, artist: string, videoId?: string, thumbnail?: string) {
   window.dispatchEvent(new CustomEvent('play-track', {
-    detail: { title, artist, uri }
+    detail: { title, artist, videoId, thumbnail }
   }))
+}
+
+// Search YouTube by name then play
+export async function requestPlayTrackByName(title: string, artist: string) {
+  const query = `${title} ${artist}`.trim()
+  const result = await searchVideoBest(query)
+  if (result) {
+    requestPlayTrack(title, artist, result.id, result.thumbnail)
+  }
 }

@@ -11,10 +11,8 @@ import { Library } from './pages/Library'
 import { LibraryArtists } from './pages/LibraryArtists'
 import { LibraryAlbums } from './pages/LibraryAlbums'
 import { LibraryLiked } from './pages/LibraryLiked'
-import { Profile } from './pages/Profile'
 import { Settings } from './pages/Settings'
 import { LoginPage } from './pages/Login'
-import { CallbackPage } from './pages/Callback'
 
 function Layout() {
   return (
@@ -38,7 +36,6 @@ function Layout() {
               <Route path="/library/artists" element={<LibraryArtists />} />
               <Route path="/library/albums" element={<LibraryAlbums />} />
               <Route path="/library/liked" element={<LibraryLiked />} />
-              <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </div>
@@ -55,7 +52,6 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/callback" element={<CallbackPage />} />
         <Route path="/*" element={<Layout />} />
       </Routes>
     </BrowserRouter>
