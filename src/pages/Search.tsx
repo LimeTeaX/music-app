@@ -36,7 +36,7 @@ export function SearchPage() {
   }, [query])
 
   const handlePlay = (v: YouTubeVideo) => {
-    requestPlayTrack(cleanTitle(v.title), '', v.id)
+    requestPlayTrack(cleanTitle(v.title), '', v.id, v.thumbnail)
   }
 
   return (

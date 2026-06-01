@@ -1,11 +1,19 @@
-const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY
-const BASE_URL = 'https://www.googleapis.com/youtube/v3'
-
 export interface YouTubeVideo {
   id: string
   title: string
   thumbnail: string
   duration: string
+  author?: string
+}
+
+const INV_INSTANCES = [
+  'https://invidious.snopyta.org',
+  'https://yewtu.be',
+  'https://invidious.privacydev.net',
+]
+
+function ytThumb(videoId: string): string {
+  return `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
 }
 
 let playerInstance: any = null
@@ -101,68 +109,63 @@ export function unMute() {
   if (playerReady) playerInstance.unMute()
 }
 
-function scoreResult(item: any, query: string, titleWords: string[], versionWords: string[]): number {
-  const title = item.snippet.title.toLowerCase()
-  const channel = item.snippet.channelTitle?.toLowerCase() || ''
-  let score = 0
-  // Words from query
-  for (const word of titleWords) {
-    if (title.includes(word)) score += 2
-    if (channel.includes(word)) score += 1
+async function invFetch(path: string): Promise<any> {
+  // Use Vite proxy in dev, fallback instances for production
+  try {
+    const res = await fetch(`/inv${path}`, { signal: AbortSignal.timeout(5000) })
+    if (res.ok) return await res.json()
+  } catch {}
+
+  for (const base of INV_INSTANCES) {
+    try {
+      const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(5000) })
+      if (res.ok) return await res.json()
+    } catch {
+      continue
+    }
   }
-  // Heavy bonus for version keywords (slowed, speed, remix, etc)
-  for (const vw of versionWords) {
-    if (title.includes(vw)) score += 5
-  }
-  // Bonus if parenthetical version info appears in title
-  const parenMatch = query.match(/\(([^)]+)\)/i)
-  if (parenMatch && title.includes(parenMatch[1].toLowerCase())) score += 8
-  return score
+  throw new Error('All Invidious instances failed')
 }
 
+const searchSingleCache = new Map<string, { result: YouTubeVideo | null; ts: number }>()
+const CACHE_TTL = 5 * 60 * 1000
+
 export async function searchVideo(query: string, duration?: string): Promise<YouTubeVideo | null> {
-  if (!API_KEY) {
-    console.warn('VITE_YOUTUBE_API_KEY not set')
-    return null
+  const cacheKey = `${query}::${duration || 'any'}`
+  const cached = searchSingleCache.get(cacheKey)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.result
   }
+
   try {
-    const durParam = duration ? `&videoDuration=${duration}` : ''
-    const searchUrl = `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&key=${API_KEY}&type=video${durParam}&maxResults=5`
-    const res = await fetch(searchUrl)
-    const data = await res.json()
-    if (data.error) {
-      console.error('YouTube API error:', data.error)
-      return null
-    }
-    const items = data.items || []
+    let durParam = ''
+    if (duration === 'medium') durParam = '&duration=medium'
+    else if (duration === 'short') durParam = '&duration=short'
+    else if (duration === 'long') durParam = '&duration=long'
+
+    const data = await invFetch(`/api/v1/search?q=${encodeURIComponent(query)}&type=video&sort=relevance&region=ID${durParam}`)
+    const items = Array.isArray(data) ? data.filter((i: any) => i.type === 'video') : []
     if (items.length === 0) return null
 
-    const qLower = query.toLowerCase()
-    const titleWords = qLower.split(/\s+/).filter(w => w.length > 2)
-    const versionWords = qLower.match(/\(([^)]+)\)/)?.[1]?.toLowerCase().split(/\s+/).filter(w => w.length > 1) || []
-    const best = items.reduce((best: any, item: any) => {
-      const s = scoreResult(item, qLower, titleWords, versionWords)
-      return s > best.score ? { item, score: s } : best
-    }, { item: items[0], score: -1 })
-
-    return {
-      id: best.item.id.videoId,
-      title: best.item.snippet.title,
-      thumbnail: best.item.snippet.thumbnails?.default?.url || '',
-      duration: '',
+    const result: YouTubeVideo = {
+      id: items[0].videoId,
+      title: items[0].title,
+      thumbnail: ytThumb(items[0].videoId),
+      duration: String(items[0].lengthSeconds || ''),
+      author: items[0].author || '',
     }
+    searchSingleCache.set(cacheKey, { result, ts: Date.now() })
+    return result
   } catch (err) {
-    console.error('YouTube search failed:', err)
+    console.error('Invidious searchVideo failed:', err)
     return null
   }
 }
 
 export async function searchVideoBest(query: string): Promise<YouTubeVideo | null> {
-  // Extract version word: from parentheses (Slowed) or explicit keywords at end
   const parenVersion = query.match(/\(([^)]+)\)/)?.[1]?.trim()
   const extraVersion = parenVersion || ''
 
-  // Build targeted queries: try version keyword explicitly first
   const qs: string[] = []
   if (extraVersion) {
     const base = query.replace(/\([^)]+\)/g, '').trim()
@@ -170,17 +173,14 @@ export async function searchVideoBest(query: string): Promise<YouTubeVideo | nul
   }
   qs.push(query, `${query} audio`, `${query} official audio`, `${query} official music video`)
 
-  // Prioritaskan medium (4-20 min) = full lagu, hindari cuplikan
   for (const q of qs) {
     const result = await searchVideo(q, 'medium')
     if (result) return result
   }
-  // Fallback short (<4 min) = lagu yang memang pendek
   for (const q of qs) {
     const result = await searchVideo(q, 'short')
     if (result) return result
   }
-  // Last resort tanpa filter (bisa dapet cuplikan)
   for (const q of qs) {
     const result = await searchVideo(q)
     if (result) return result
@@ -188,27 +188,31 @@ export async function searchVideoBest(query: string): Promise<YouTubeVideo | nul
   return null
 }
 
+const searchCache = new Map<string, { results: YouTubeVideo[]; ts: number }>()
+
 export async function searchVideos(query: string, maxResults: number = 20): Promise<YouTubeVideo[]> {
-  if (!API_KEY) {
-    console.warn('VITE_YOUTUBE_API_KEY not set')
-    return []
+  const cacheKey = `${query}::${maxResults}`
+  const cached = searchCache.get(cacheKey)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.results
   }
+
   try {
-    const searchUrl = `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&key=${API_KEY}&type=video&videoCategoryId=10&maxResults=${maxResults}`
-    const res = await fetch(searchUrl)
-    const data = await res.json()
-    if (data.error) {
-      console.error('YouTube API error:', data.error)
-      return []
-    }
-    return (data.items || []).map((item: any) => ({
-      id: item.id.videoId,
-      title: item.snippet.title,
-      thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || '',
-      duration: '',
-    }))
+    const data = await invFetch(`/api/v1/search?q=${encodeURIComponent(query)}&type=video&sort=relevance&region=ID`)
+    const results = (Array.isArray(data) ? data : [])
+      .filter((i: any) => i.type === 'video')
+      .slice(0, maxResults)
+      .map((i: any) => ({
+        id: i.videoId,
+        title: i.title,
+        thumbnail: ytThumb(i.videoId),
+        duration: String(i.lengthSeconds || ''),
+        author: i.author || '',
+      }))
+    searchCache.set(cacheKey, { results, ts: Date.now() })
+    return results
   } catch (err) {
-    console.error('YouTube searchVideos failed:', err)
+    console.error('Invidious searchVideos failed:', err)
     return []
   }
 }

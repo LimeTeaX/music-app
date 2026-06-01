@@ -7,5 +7,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), basicSsl()],
   server: {
     port: 5173,
+    proxy: {
+      '/inv': {
+        target: 'https://invidious.snopyta.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/inv/, ''),
+      },
+    },
   },
 })

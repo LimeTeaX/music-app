@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Music2, Heart, Trash2 } from 'lucide-react'
 import { getLikedTracks, type LikedTrack, toggleLike } from '../lib/liked-tracks'
-import { requestPlayTrack } from '../lib/youtube-api'
+import { requestPlayTrackByName } from '../lib/youtube-api'
 
 export function LibraryLiked() {
   const [tracks, setTracks] = useState<LikedTrack[]>([])
@@ -33,7 +33,7 @@ export function LibraryLiked() {
           {tracks.map((track, i) => (
             <div
               key={`${track.title}-${track.artist}`}
-              onClick={() => requestPlayTrack(track.title, track.artist)}
+              onClick={() => requestPlayTrackByName(track.title, track.artist)}
               className="flex items-center justify-between p-4 hover:bg-bg-button-hover transition-colors cursor-pointer group"
             >
               <div className="flex items-center gap-4 min-w-0">
