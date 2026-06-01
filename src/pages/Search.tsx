@@ -63,6 +63,15 @@ export function SearchPage() {
     setLoading(true)
     setSearchFailed(false)
     try {
+      const token = localStorage.getItem('spotify_tokens')
+      if (!token) {
+        console.warn('[Search] No spotify tokens in localStorage')
+        if ($query.current === q) { setArtists([]); setAlbums([]); setTracks([]); setSearchFailed(true) }
+        return
+      }
+      const parsed = JSON.parse(token)
+      const expired = Date.now() > parsed.expires_at
+      console.log('[Search] Token expired:', expired, 'Has refresh_token:', !!parsed.refresh_token)
       const results = await spotifyApi.searchAll(q.trim())
       if ($query.current !== q) return
       if (results) {
@@ -74,7 +83,7 @@ export function SearchPage() {
         if (connected) setSearchFailed(true)
       }
     } catch (err) {
-      console.error('Search failed:', err)
+      console.error('[Search] Search failed:', err)
       if ($query.current === q) { setArtists([]); setAlbums([]); setTracks([]); setSearchFailed(true) }
     } finally {
       if ($query.current === q) setLoading(false)

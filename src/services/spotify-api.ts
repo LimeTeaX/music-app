@@ -261,16 +261,30 @@ export interface SpotifySearchResults {
 }
 
 export async function searchAll(query: string): Promise<SpotifySearchResults | null> {
-  const data = await fetchApi<{
-    tracks?: { items: SpotifyTrack[] }
-    artists?: { items: SpotifyArtist[] }
-    albums?: { items: SpotifyAlbumSimplified[] }
-  }>(`/search?q=${encodeURIComponent(query)}&type=track,artist,album&limit=10`)
-  if (!data) return null
-  return {
-    tracks: data.tracks?.items || [],
-    artists: data.artists?.items || [],
-    albums: data.albums?.items || [],
+  const endpoint = `/search?q=${encodeURIComponent(query)}&type=track,artist,album&limit=10`
+  const token = await getValidToken()
+  if (!token) {
+    console.warn('[searchAll] No valid token')
+    return null
+  }
+  try {
+    const res = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error(`[searchAll] HTTP ${res.status}:`, errText.substring(0, 200))
+      return null
+    }
+    const data = await res.json()
+    return {
+      tracks: data.tracks?.items || [],
+      artists: data.artists?.items || [],
+      albums: data.albums?.items || [],
+    }
+  } catch (err) {
+    console.error('[searchAll] Network error:', err)
+    return null
   }
 }
 
