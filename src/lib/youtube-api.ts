@@ -101,6 +101,25 @@ export function unMute() {
   if (playerReady) playerInstance.unMute()
 }
 
+function scoreResult(item: any, query: string, titleWords: string[], versionWords: string[]): number {
+  const title = item.snippet.title.toLowerCase()
+  const channel = item.snippet.channelTitle?.toLowerCase() || ''
+  let score = 0
+  // Words from query
+  for (const word of titleWords) {
+    if (title.includes(word)) score += 2
+    if (channel.includes(word)) score += 1
+  }
+  // Heavy bonus for version keywords (slowed, speed, remix, etc)
+  for (const vw of versionWords) {
+    if (title.includes(vw)) score += 5
+  }
+  // Bonus if parenthetical version info appears in title
+  const parenMatch = query.match(/\(([^)]+)\)/i)
+  if (parenMatch && title.includes(parenMatch[1].toLowerCase())) score += 8
+  return score
+}
+
 export async function searchVideo(query: string, duration?: string): Promise<YouTubeVideo | null> {
   if (!API_KEY) {
     console.warn('VITE_YOUTUBE_API_KEY not set')
@@ -108,23 +127,28 @@ export async function searchVideo(query: string, duration?: string): Promise<You
   }
   try {
     const durParam = duration ? `&videoDuration=${duration}` : ''
-    const searchUrl = `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&key=${API_KEY}&type=video${durParam}&maxResults=3`
+    const searchUrl = `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&key=${API_KEY}&type=video${durParam}&maxResults=5`
     const res = await fetch(searchUrl)
     const data = await res.json()
     if (data.error) {
       console.error('YouTube API error:', data.error)
       return null
     }
-    // Ambil 3 hasil, cari durasi via videoDetails, pilih yg paling cocok
     const items = data.items || []
     if (items.length === 0) return null
 
-    // Video pertama sudah cukup, ambil ID-nya
-    const item = items[0]
+    const qLower = query.toLowerCase()
+    const titleWords = qLower.split(/\s+/).filter(w => w.length > 2)
+    const versionWords = qLower.match(/\(([^)]+)\)/)?.[1]?.toLowerCase().split(/\s+/).filter(w => w.length > 1) || []
+    const best = items.reduce((best: any, item: any) => {
+      const s = scoreResult(item, qLower, titleWords, versionWords)
+      return s > best.score ? { item, score: s } : best
+    }, { item: items[0], score: -1 })
+
     return {
-      id: item.id.videoId,
-      title: item.snippet.title,
-      thumbnail: item.snippet.thumbnails?.default?.url || '',
+      id: best.item.id.videoId,
+      title: best.item.snippet.title,
+      thumbnail: best.item.snippet.thumbnails?.default?.url || '',
       duration: '',
     }
   } catch (err) {
@@ -134,20 +158,31 @@ export async function searchVideo(query: string, duration?: string): Promise<You
 }
 
 export async function searchVideoBest(query: string): Promise<YouTubeVideo | null> {
-  // Coba medium (4-20 min) dulu, lalu short (<4 min)
-  const searches = [
-    `${query} official audio`,
-    `${query} official music video`,
-    `${query} audio`,
-  ]
-  // Medium first
-  for (const q of searches) {
+  // Extract version word: from parentheses (Slowed) or explicit keywords at end
+  const parenVersion = query.match(/\(([^)]+)\)/)?.[1]?.trim()
+  const extraVersion = parenVersion || ''
+
+  // Build targeted queries: try version keyword explicitly first
+  const qs: string[] = []
+  if (extraVersion) {
+    const base = query.replace(/\([^)]+\)/g, '').trim()
+    qs.push(`${base} ${extraVersion}`)
+  }
+  qs.push(query, `${query} audio`, `${query} official audio`, `${query} official music video`)
+
+  // Prioritaskan medium (4-20 min) = full lagu, hindari cuplikan
+  for (const q of qs) {
     const result = await searchVideo(q, 'medium')
     if (result) return result
   }
-  // Fallback to short for songs under 4 min
-  for (const q of searches) {
+  // Fallback short (<4 min) = lagu yang memang pendek
+  for (const q of qs) {
     const result = await searchVideo(q, 'short')
+    if (result) return result
+  }
+  // Last resort tanpa filter (bisa dapet cuplikan)
+  for (const q of qs) {
+    const result = await searchVideo(q)
     if (result) return result
   }
   return null
@@ -159,8 +194,8 @@ export function getPlayerState(): number {
 }
 
 // Global event untuk play track dari komponen lain
-export function requestPlayTrack(title: string, artist: string, query?: string) {
+export function requestPlayTrack(title: string, artist: string, uri?: string) {
   window.dispatchEvent(new CustomEvent('play-track', {
-    detail: { title, artist, query: query || `${title} ${artist} audio` }
+    detail: { title, artist, uri }
   }))
 }

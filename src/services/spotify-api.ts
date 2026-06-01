@@ -173,15 +173,138 @@ export async function getFollowedArtists(limit = 20): Promise<{ artists: { items
   return fetchApi(`/me/following?type=artist&limit=${limit}`)
 }
 
-// Search for a track
-export async function searchTrack(query: string): Promise<SpotifyTrack[] | null> {
-  const data = await fetchApi<{ tracks: { items: SpotifyTrack[] } }>(`/search?q=${encodeURIComponent(query)}&type=track&limit=5`)
-  return data?.tracks?.items ?? null
-}
-
 // Start playback with a specific track URI
 export async function startPlaybackWithContext(uri: string, deviceId?: string) {
   const body: any = { uris: [uri] }
   if (deviceId) body.device_ids = [deviceId]
   return fetchApi('/me/player/play', { method: 'PUT', body: JSON.stringify(body) })
+}
+
+// ── Artist ──
+
+export interface SpotifyArtistFull {
+  id: string
+  name: string
+  images: { url: string }[]
+  genres: string[]
+  followers: { total: number }
+  popularity: number
+  type: string
+  external_urls: { spotify: string }
+}
+
+export async function getArtist(artistId: string): Promise<SpotifyArtistFull | null> {
+  return fetchApi<SpotifyArtistFull>(`/artists/${artistId}`)
+}
+
+export async function searchArtist(query: string): Promise<SpotifyArtist[] | null> {
+  const data = await fetchApi<{ artists: { items: SpotifyArtist[] } }>(`/search?q=${encodeURIComponent(query)}&type=artist&limit=10`)
+  return data?.artists?.items ?? null
+}
+
+export async function getArtistTopTracks(artistId: string): Promise<SpotifyTrack[] | null> {
+  const data = await fetchApi<{ tracks: SpotifyTrack[] }>(`/artists/${artistId}/top-tracks?market=from_token`)
+  return data?.tracks ?? null
+}
+
+export async function getArtistAlbums(artistId: string, limit = 10): Promise<SpotifyAlbumSimplified[] | null> {
+  const data = await fetchApi<{ items: SpotifyAlbumSimplified[] }>(`/artists/${artistId}/albums?include_groups=album,single&limit=${limit}`)
+  return data?.items ?? null
+}
+
+export async function getRelatedArtists(artistId: string): Promise<SpotifyArtist[] | null> {
+  const data = await fetchApi<{ artists: SpotifyArtist[] }>(`/artists/${artistId}/related-artists`)
+  return data?.artists ?? null
+}
+
+// ── Album ──
+
+export interface SpotifyAlbumSimplified {
+  id: string
+  name: string
+  images: { url: string }[]
+  artists: { name: string; id: string }[]
+  release_date: string
+  total_tracks: number
+  album_type: string
+}
+
+export interface SpotifyAlbumFull {
+  id: string
+  name: string
+  artists: { name: string; id: string }[]
+  images: { url: string }[]
+  release_date: string
+  total_tracks: number
+  genres: string[]
+  label: string
+  popularity: number
+  tracks: { items: SpotifyTrack[] }
+  external_urls: { spotify: string }
+}
+
+export async function getAlbum(albumId: string): Promise<SpotifyAlbumFull | null> {
+  return fetchApi<SpotifyAlbumFull>(`/albums/${albumId}`)
+}
+
+export async function searchAlbum(query: string): Promise<SpotifyAlbumSimplified[] | null> {
+  const data = await fetchApi<{ albums: { items: SpotifyAlbumSimplified[] } }>(`/search?q=${encodeURIComponent(query)}&type=album&limit=10`)
+  return data?.albums?.items ?? null
+}
+
+// ── Search All ──
+
+export interface SpotifySearchResults {
+  tracks: SpotifyTrack[]
+  artists: SpotifyArtist[]
+  albums: SpotifyAlbumSimplified[]
+}
+
+export async function searchAll(query: string): Promise<SpotifySearchResults | null> {
+  const data = await fetchApi<{
+    tracks?: { items: SpotifyTrack[] }
+    artists?: { items: SpotifyArtist[] }
+    albums?: { items: SpotifyAlbumSimplified[] }
+  }>(`/search?q=${encodeURIComponent(query)}&type=track,artist,album&limit=10`)
+  if (!data) return null
+  return {
+    tracks: data.tracks?.items || [],
+    artists: data.artists?.items || [],
+    albums: data.albums?.items || [],
+  }
+}
+
+// ── Browse ──
+
+export interface SpotifyNewReleases {
+  albums: { items: SpotifyAlbumSimplified[] }
+}
+
+export async function getNewReleases(limit = 10): Promise<SpotifyAlbumSimplified[] | null> {
+  const data = await fetchApi<{ albums: { items: SpotifyAlbumSimplified[] } }>(`/browse/new-releases?limit=${limit}`)
+  return data?.albums?.items ?? null
+}
+
+export async function getFeaturedPlaylists(limit = 10): Promise<SpotifyPlaylist[] | null> {
+  const data = await fetchApi<{ playlists: { items: SpotifyPlaylist[] } }>(`/browse/featured-playlists?limit=${limit}`)
+  return data?.playlists?.items ?? null
+}
+
+export async function getRecommendations(seedArtists: string[], limit = 10): Promise<SpotifyTrack[] | null> {
+  const seeds = seedArtists.slice(0, 5).join(',')
+  const data = await fetchApi<{ tracks: SpotifyTrack[] }>(`/recommendations?seed_artists=${encodeURIComponent(seeds)}&limit=${limit}`)
+  return data?.tracks ?? null
+}
+
+// ── Search Track (legacy) ──
+
+export async function searchTrack(query: string): Promise<SpotifyTrack[] | null> {
+  const data = await fetchApi<{ tracks: { items: SpotifyTrack[] } }>(`/search?q=${encodeURIComponent(query)}&type=track&limit=20`)
+  return data?.tracks?.items ?? null
+}
+
+export async function searchTrackExact(title: string, artist: string): Promise<SpotifyTrack[] | null> {
+  const q = `track:"${title.replace(/"/g, '')}" artist:"${artist.replace(/"/g, '')}"`
+  const data = await fetchApi<{ tracks: { items: SpotifyTrack[] } }>(`/search?q=${encodeURIComponent(q)}&type=track&limit=10`)
+  return data?.tracks?.items ?? null
 }

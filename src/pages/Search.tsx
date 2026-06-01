@@ -1,16 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { lastFmApi } from '../lib/lastfm-api'
 import { requestPlayTrack } from '../lib/youtube-api'
+import * as spotifyApi from '../services/spotify-api'
 import { Search as SearchIcon, Mic2, Heart, X, Disc, Music2, Play } from 'lucide-react'
 
 type Tab = 'all' | 'artists' | 'albums' | 'tracks'
 
-interface Image { size: string; '#text': string }
+function getArtistImage(artist: spotifyApi.SpotifyArtist): string {
+  return artist.images?.[0]?.url || ''
+}
 
-function getImage(images: Image[]): string {
-  const img = images.find(i => i.size === 'medium' || i.size === 'large')
-  return img?.['#text'] || ''
+function getAlbumImage(album: spotifyApi.SpotifyAlbumSimplified): string {
+  return album.images?.[0]?.url || ''
+}
+
+function getTrackDetail(track: spotifyApi.SpotifyTrack): { title: string; artist: string; uri: string; albumName: string } {
+  return {
+    title: track.name,
+    artist: track.artists.map(a => a.name).join(', '),
+    uri: `spotify:track:${track.id}`,
+    albumName: track.album?.name || '',
+  }
 }
 
 function getFollowed(): string[] {
@@ -33,9 +43,9 @@ export function SearchPage() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<Tab>('all')
-  const [artists, setArtists] = useState<any[]>([])
-  const [albums, setAlbums] = useState<any[]>([])
-  const [tracks, setTracks] = useState<any[]>([])
+  const [artists, setArtists] = useState<spotifyApi.SpotifyArtist[]>([])
+  const [albums, setAlbums] = useState<spotifyApi.SpotifyAlbumSimplified[]>([])
+  const [tracks, setTracks] = useState<spotifyApi.SpotifyTrack[]>([])
   const [loading, setLoading] = useState(false)
   const [followed, setFollowedState] = useState<string[]>(getFollowed)
   const $query = useRef(query)
@@ -49,15 +59,15 @@ export function SearchPage() {
     }
     setLoading(true)
     try {
-      const [artistData, albumData, trackData] = await Promise.all([
-        lastFmApi.searchArtist(q.trim()),
-        lastFmApi.searchAlbum(q.trim()),
-        lastFmApi.searchTrack(q.trim()),
-      ])
+      const results = await spotifyApi.searchAll(q.trim())
       if ($query.current !== q) return
-      setArtists(artistData.results?.artistmatches?.artist || [])
-      setAlbums(albumData.results?.albummatches?.album || [])
-      setTracks(trackData.results?.trackmatches?.track || [])
+      if (results) {
+        setArtists(results.artists)
+        setAlbums(results.albums)
+        setTracks(results.tracks)
+      } else {
+        setArtists([]); setAlbums([]); setTracks([])
+      }
     } catch (err) {
       console.error('Search failed:', err)
     } finally {
@@ -86,7 +96,7 @@ export function SearchPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Search</h1>
-        <p className="text-sm text-text-subdued">Find artists, albums, and tracks</p>
+        <p className="text-sm text-text-subdued">Find artists, albums, and tracks on Spotify</p>
       </div>
 
       {/* Search Input */}
@@ -166,12 +176,12 @@ export function SearchPage() {
             <Mic2 className="h-4 w-4 text-accent" /> Artists
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {artists.slice(0, tab === 'all' ? 6 : undefined).map((artist, i) => {
-              const img = getImage(artist.image)
+            {artists.slice(0, tab === 'all' ? 6 : undefined).map((artist) => {
+              const img = getArtistImage(artist)
               const followed = getFollowed().includes(artist.name)
               return (
                 <div
-                  key={i}
+                  key={artist.id}
                   onClick={() => navigate(`/artist/${encodeURIComponent(artist.name)}`)}
                   className="bg-bg-surface rounded-md p-3 hover:bg-bg-button-hover transition-colors cursor-pointer shadow-medium group text-center"
                 >
@@ -200,19 +210,19 @@ export function SearchPage() {
             <Disc className="h-4 w-4 text-accent" /> Albums
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {albums.slice(0, tab === 'all' ? 6 : undefined).map((album, i) => {
-              const img = getImage(album.image)
+            {albums.slice(0, tab === 'all' ? 6 : undefined).map((album) => {
+              const img = getAlbumImage(album)
               return (
                 <div
-                  key={i}
-                  onClick={() => navigate(`/album/${encodeURIComponent(album.artist)}/${encodeURIComponent(album.name)}`)}
+                  key={album.id}
+                  onClick={() => navigate(`/album/${encodeURIComponent(album.artists[0]?.name || '')}/${encodeURIComponent(album.name)}`)}
                   className="bg-bg-surface rounded-md p-3 hover:bg-bg-button-hover transition-colors cursor-pointer shadow-medium"
                 >
                   <div className="w-full aspect-square bg-bg-base rounded-md flex items-center justify-center mb-2 overflow-hidden">
                     {img ? <img src={img} alt={album.name} className="w-full h-full object-cover" /> : <Disc className="h-6 w-6 text-text-subdued" />}
                   </div>
                   <p className="text-sm font-medium text-white truncate">{album.name}</p>
-                  <p className="text-xs text-text-subdued truncate">{album.artist}</p>
+                  <p className="text-xs text-text-subdued truncate">{album.artists.map(a => a.name).join(', ')}</p>
                 </div>
               )
             })}
@@ -226,26 +236,27 @@ export function SearchPage() {
             <Music2 className="h-4 w-4 text-accent" /> Tracks
           </h2>
           <div className="space-y-1">
-            {tracks.slice(0, tab === 'all' ? 10 : undefined).map((track, i) => (
-              <div
-                key={i}
-                onClick={() => requestPlayTrack(track.name, track.artist)}
-                className="flex items-center gap-3 p-3 bg-bg-surface rounded-md hover:bg-bg-button-hover transition-colors cursor-pointer shadow-medium group"
-              >
-                <div className="w-8 h-8 bg-bg-base rounded flex items-center justify-center flex-shrink-0 group-hover:bg-accent/20 transition-colors">
-                  <Play className="h-4 w-4 text-text-subdued group-hover:text-accent transition-colors" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-white truncate">{track.name}</p>
-                  <p className="text-xs text-text-subdued truncate">{track.artist}</p>
-                </div>
-                {track.listeners && (
+            {tracks.slice(0, tab === 'all' ? 10 : undefined).map((track) => {
+              const { title, artist, uri } = getTrackDetail(track)
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => requestPlayTrack(title, artist, uri)}
+                  className="flex items-center gap-3 p-3 bg-bg-surface rounded-md hover:bg-bg-button-hover transition-colors cursor-pointer shadow-medium group"
+                >
+                  <div className="w-8 h-8 bg-bg-base rounded flex items-center justify-center flex-shrink-0 group-hover:bg-accent/20 transition-colors">
+                    <Play className="h-4 w-4 text-text-subdued group-hover:text-accent transition-colors" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-white truncate">{track.name}</p>
+                    <p className="text-xs text-text-subdued truncate">{artist}</p>
+                  </div>
                   <span className="text-xs text-text-subdued flex-shrink-0">
-                    {parseInt(track.listeners).toLocaleString()} listeners
+                    {Math.floor(track.duration_ms / 60000)}:{Math.floor((track.duration_ms % 60000) / 1000).toString().padStart(2, '0')}
                   </span>
-                )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </section>
       )}
@@ -254,7 +265,7 @@ export function SearchPage() {
       {!query && (
         <div className="text-center py-16">
           <SearchIcon className="h-12 w-12 text-text-subdued mx-auto mb-4" />
-          <p className="text-text-subdued">Type to search artists, albums, and tracks</p>
+          <p className="text-text-subdued">Type to search artists, albums, and tracks on Spotify</p>
         </div>
       )}
     </div>
