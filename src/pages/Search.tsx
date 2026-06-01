@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { requestPlayTrack } from '../lib/youtube-api'
+import { isSpotifyConnected } from '../services/spotify-auth'
 import * as spotifyApi from '../services/spotify-api'
 import { Search as SearchIcon, Mic2, Heart, X, Disc, Music2, Play } from 'lucide-react'
 
@@ -47,8 +48,10 @@ export function SearchPage() {
   const [albums, setAlbums] = useState<spotifyApi.SpotifyAlbumSimplified[]>([])
   const [tracks, setTracks] = useState<spotifyApi.SpotifyTrack[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
   const [followed, setFollowedState] = useState<string[]>(getFollowed)
   const $query = useRef(query)
+  const connected = isSpotifyConnected()
   $query.current = query
 
   const syncFollowed = () => setFollowedState(getFollowed())
@@ -58,6 +61,7 @@ export function SearchPage() {
       setArtists([]); setAlbums([]); setTracks([]); return
     }
     setLoading(true)
+    setSearchFailed(false)
     try {
       const results = await spotifyApi.searchAll(q.trim())
       if ($query.current !== q) return
@@ -67,9 +71,11 @@ export function SearchPage() {
         setTracks(results.tracks)
       } else {
         setArtists([]); setAlbums([]); setTracks([])
+        if (connected) setSearchFailed(true)
       }
     } catch (err) {
       console.error('Search failed:', err)
+      if ($query.current === q) { setArtists([]); setAlbums([]); setTracks([]); setSearchFailed(true) }
     } finally {
       if ($query.current === q) setLoading(false)
     }
@@ -167,7 +173,14 @@ export function SearchPage() {
 
       {/* Results */}
       {!loading && query && !hasResults && (
-        <p className="text-sm text-text-subdued text-center py-16">No results found for "{query}"</p>
+        <p className="text-sm text-text-subdued text-center py-16">
+          {!connected
+            ? 'Connect to Spotify to search music'
+            : searchFailed
+              ? 'Search failed. Please try again.'
+              : `No results found for "${query}"`
+          }
+        </p>
       )}
 
       {!loading && query && hasResults && (tab === 'all' || tab === 'artists') && artists.length > 0 && (
@@ -265,7 +278,9 @@ export function SearchPage() {
       {!query && (
         <div className="text-center py-16">
           <SearchIcon className="h-12 w-12 text-text-subdued mx-auto mb-4" />
-          <p className="text-text-subdued">Type to search artists, albums, and tracks on Spotify</p>
+          <p className="text-text-subdued">
+            {connected ? 'Type to search artists, albums, and tracks on Spotify' : 'Connect to Spotify to search music'}
+          </p>
         </div>
       )}
     </div>
